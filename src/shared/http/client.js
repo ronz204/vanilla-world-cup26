@@ -1,12 +1,9 @@
 import { cache } from './cache.js';
+import { getToken } from './auth.js';
 import { MAX_ATTEMPTS, getDelay, wait } from './retries.js';
 import { AuthError, RateLimitError, ServerError, NetworkError, HttpError } from './errors.js';
 
-const BASE_URL = 'https://worldcup26.ir';
-
-function getToken() {
-  return localStorage.getItem('wc26:token');
-}
+const BASE_URL = '/api';
 
 async function request(method, endpoint, { body, headers = {}, cacheTtl, skipCache, onRetryTick } = {}) {
   if (method === 'GET' && cacheTtl && !skipCache) {
