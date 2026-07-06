@@ -1,5 +1,5 @@
-export function createStore(initialState) {
-  let state = initialState;
+export function store(initial) {
+  let state = initial;
   const subscribers = new Set();
 
   return {

@@ -5,7 +5,7 @@ export function route(pattern, view) {
   return { pattern: new RegExp(`^${rx}$`), view };
 }
 
-export function createRouter(routes, outlet) {
+export function router(routes, outlet) {
   let currentDestroy = null;
 
   function resolve() {
