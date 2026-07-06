@@ -1,3 +1,5 @@
+import "./style.css";
+
 import { router, route } from "@context/routing.js";
 import { renderLogin } from "@features/authen/view";
 
