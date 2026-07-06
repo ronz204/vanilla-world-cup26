@@ -5,7 +5,7 @@ export function createStore(initialState) {
   return {
     get: () => state,
     set: (partial) => {
-      const next = { ...state, ...(typeof partial === 'function' ? partial(state) : partial) };
+      const next = { ...state, ...partial };
       if (Object.keys(next).every(k => next[k] === state[k])) return;
       state = next;
       subscribers.forEach(fn => fn(state));
@@ -20,4 +20,4 @@ export function createStore(initialState) {
     },
     destroy: () => subscribers.clear(),
   };
-};
+}

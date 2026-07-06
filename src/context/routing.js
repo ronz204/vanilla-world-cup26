@@ -10,15 +10,17 @@ export function createRouter(routes, outlet) {
 
   function resolve() {
     const hash = location.hash.slice(1) || '/';
-    const match = routes.find(r => r.pattern.test(hash));
-
     if (currentDestroy) { currentDestroy(); currentDestroy = null; }
 
-    if (!match) { outlet.innerHTML = '<p>404</p>'; return; }
+    for (const { pattern, view } of routes) {
+      const match = pattern.exec(hash);
+      if (!match) continue;
+      currentDestroy = view(outlet, match.groups ?? {}) ?? null;
+      return;
+    };
 
-    const params = match.pattern.exec(hash)?.groups ?? {};
-    currentDestroy = match.view(outlet, params) ?? null;
-  }
+    outlet.innerHTML = '<p>404</p>';
+  };
 
   window.addEventListener('hashchange', resolve);
   resolve();
