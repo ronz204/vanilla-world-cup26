@@ -1,6 +1,6 @@
 import { HttpError, NetworkError } from "@shared/http/errors";
 
-export const ERRORS = {
+const ERRORS = {
   network:     "Sin conexión. Revisá tu red e intentá de nuevo.",
   credentials: "Email o contraseña incorrectos.",
   default:     "Algo salió mal. Intentá de nuevo.",

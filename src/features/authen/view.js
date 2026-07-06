@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { wind } from "./styles.js";
 import { matcher } from "./errors.js";
+import { validate } from "./valids.js";
 
 import { store } from "@context/store.js";
 import { html, raw } from "@context/escape.js";
@@ -125,10 +126,15 @@ export function renderLogin(outlet) {
     if (state.get().status === "loading") return;
 
     const { email, password } = e.target;
+    const emailVal = email.value.trim();
+    const passwordVal = password.value;
+
+    const error = validate({ email: emailVal, password: passwordVal });
+    if (error) { state.set({ status: "error", errorMsg: error }); return }
     state.set({ status: "loading", errorMsg: null });
 
     try {
-      const data = await api.login(email.value.trim(), password.value);
+      const data = await api.login(emailVal, passwordVal);
       saveToken(data.token);
       location.hash = "/home";
     } catch (err) {
