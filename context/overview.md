@@ -6,7 +6,7 @@
 
 SPA de JavaScript vanilla (sin frameworks) construida con **Vite**, que consume la API REST pública del Mundial 2026 (`https://worldcup26.ir`). Es un laboratorio universitario individual, pero el diseño técnico se trata como un proyecto real: arquitectura limpia, estado sincronizado, y resiliencia real ante fallos de red/API — no un demo de "happy path".
 
-Punto de partida elegido: **Creador de "Dream Team"** (selección de 11 equipos + cálculo de goles). El diseño debe permitir agregar más subproyectos del mismo catálogo (Buscador Cara a Cara, Seguidor de Sorpresas, Quiniela Local, Simulador de Sorteo Loco) reutilizando la misma infraestructura base, sin asumir que solo existirá uno.
+**Los 5 subproyectos del catálogo son de entrega obligatoria** (confirmado por el profesor): Creador de "Dream Team", Buscador Cara a Cara, Seguidor de Sorpresas, Quiniela Local, y Simulador de Sorteo Loco. Se empieza implementando Dream Team (selección de 11 equipos + cálculo de goles) porque ya tiene el diseño más avanzado, pero el diseño de `core/` y `http/` debe pensarse desde el día uno para que las 5 vistas convivan en la misma SPA reutilizando la misma infraestructura base, sin duplicar lógica de estado o de fetch entre subproyectos.
 
 Ver `approach.md` para el detalle funcional completo de cada subproyecto y los criterios de aceptación.
 
@@ -45,4 +45,4 @@ Estas reglas son evaluadas explícitamente en una defensa oral en vivo — el co
 - Priorizar que el código sea **explicable por el estudiante en una defensa oral en vivo** — evitar patrones demasiado "mágicos" o abstracciones que el estudiante no pueda justificar con criterio propio.
 - Antes de agregar una dependencia externa, preguntar si encaja con la filosofía "vanilla + micro-framework propio" del punto 3.
 - Cualquier cambio que toque la capa HTTP debe seguir cumpliendo las 8 restricciones de la sección 4 sin excepción.
-- Si se implementa un subproyecto nuevo, reutilizar `core/` y `http/` en vez de duplicar lógica de estado o de fetch.
+- Al implementar cada uno de los 5 subproyectos, reutilizar `core/` y `http/` en vez de duplicar lógica de estado o de fetch.

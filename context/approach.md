@@ -24,7 +24,11 @@ Estos 5 puntos son innegociables, sin importar cuál de los 5 subproyectos se im
 - `.then()` / `.catch()`, aunque convivan con `async/await` en otra parte del mismo archivo.
 - `window.location.reload()` (o equivalente) como solución a un error de sesión o de red.
 
-## 3. Subproyecto elegido para empezar: 3.1 Creador de "Dream Team"
+## 3. Los 5 subproyectos (todos obligatorios)
+
+> El profesor confirmó que los 5 subproyectos de la Categoría C son de entrega obligatoria, no una elección única. El orden de implementación sigue siendo flexible — se empieza por Dream Team porque ya tiene el diseño más avanzado — pero los 5 deben quedar funcionales al final.
+
+### 3.1 Creador de "Dream Team" (primero en implementarse)
 
 **Objetivo técnico**: manejo de estado en memoria con actualización en tiempo real ante cada cambio de selección.
 
@@ -37,8 +41,6 @@ Estos 5 puntos son innegociables, sin importar cuál de los 5 subproyectos se im
 - Mostrar y actualizar un **total general de goles** del Dream Team cada vez que se agrega o quita un equipo.
 
 **Reto de resiliencia específico**: si falla la petición para calcular los goles de un equipo recién agregado, ese equipo permanece en la lista con indicador de "goles pendientes de calcular". El total general debe excluir ese valor pendiente **sin producir `NaN`** en la suma.
-
-## 4. Los otros subproyectos del catálogo (para posible implementación posterior)
 
 ### 3.2 Buscador Cara a Cara
 **Objetivo técnico**: debounce para autocompletado + `Promise.all` para peticiones paralelas con manejo de fallos independientes.
@@ -79,18 +81,20 @@ Estos 5 puntos son innegociables, sin importar cuál de los 5 subproyectos se im
 - Botón "Repetir sorteo" que vuelve a mezclar el arreglo ya obtenido, **sin volver a pedirlo a la API**.
 **Reto de resiliencia**: el sorteo se guarda en `localStorage`. Si el usuario refresca antes de pedir un nuevo sorteo, debe ver el mismo sorteo anterior en vez de un estado vacío. `/get/teams` solo se llama una vez por sesión, salvo recarga forzada explícita.
 
-## 5. Criterios de aceptación (derivados de la rúbrica)
+## 4. Criterios de aceptación (derivados de la rúbrica)
 
-Un subproyecto se considera correctamente resuelto cuando:
+Cada uno de los 5 subproyectos se considera correctamente resuelto cuando:
 
-- Todas las funcionalidades exigidas del subproyecto elegido están implementadas y el estado (memoria/`localStorage`) siempre coincide con lo mostrado en el DOM.
-- Todas las llamadas a la API usan `async/await`, sin ningún `.then()/.catch()` en el código; la lógica de `fetch` está separada de la lógica de presentación; cada llamada incluye `Authorization: Bearer <token>`.
-- Un 401 limpia el token y muestra pantalla/modal de sesión expirada con opción de reautenticarse (sin `reload()`); un 429 muestra countdown visible del siguiente reintento.
-- Un 500 dispara backoff exponencial automático; si hay copia cacheada en `localStorage`, se muestra con indicador de "no actualizado"; el reto de resiliencia específico del subproyecto elegido queda resuelto (ej. en Dream Team: nunca se produce `NaN` en el total si un equipo tiene goles pendientes).
-- Cero `alert()`, cero mezcla `.then()/.catch()` con `async/await`, cero `window.location.reload()` como solución de error de sesión o red.
-- El código es explicable línea por línea por el estudiante, incluyendo cualquier parte generada con apoyo de IA — se debe poder justificar cada decisión de diseño en una defensa oral en vivo, incluyendo reproducir en DevTools (Console y Network) un error 401/429/500 sin que la app se rompa visualmente.
+- [ ] Todas las funcionalidades exigidas de ese subproyecto están implementadas y el estado (memoria/`localStorage`) siempre coincide con lo mostrado en el DOM.
+- [ ] Todas las llamadas a la API usan `async/await`, sin ningún `.then()/.catch()` en el código; la lógica de `fetch` está separada de la lógica de presentación; cada llamada incluye `Authorization: Bearer <token>`.
+- [ ] Un 401 limpia el token y muestra pantalla/modal de sesión expirada con opción de reautenticarse (sin `reload()`); un 429 muestra countdown visible del siguiente reintento.
+- [ ] Un 500 dispara backoff exponencial automático; si hay copia cacheada en `localStorage`, se muestra con indicador de "no actualizado"; el reto de resiliencia específico de ese subproyecto queda resuelto (ej. en Dream Team: nunca se produce `NaN` en el total si un equipo tiene goles pendientes).
+- [ ] Cero `alert()`, cero mezcla `.then()/.catch()` con `async/await`, cero `window.location.reload()` como solución de error de sesión o red.
+- [ ] El código es explicable línea por línea por el estudiante, incluyendo cualquier parte generada con apoyo de IA — se debe poder justificar cada decisión de diseño en una defensa oral en vivo, incluyendo reproducir en DevTools (Console y Network) un error 401/429/500 sin que la app se rompa visualmente.
 
-## 6. Notas de arquitectura / diseño técnico a definir
+El proyecto completo (los 5) se considera entregado cuando los 5 subproyectos cumplen su checklist individual, y las 5 vistas conviven en la misma SPA sin duplicar lógica de estado/HTTP entre sí (ver sección 6 y `tooling.md` para el diseño del router y el micro-framework compartido).
+
+## 5. Notas de arquitectura / diseño técnico a definir
 
 Cosas a decidir antes de empezar a codear el Dream Team Creator:
 
