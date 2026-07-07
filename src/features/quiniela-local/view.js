@@ -7,38 +7,9 @@ import { clearToken } from '@shared/http/auth.js';
 import { timeAgo }    from '@shared/utils.js';
 import { api }        from './api.js';
 import { w }          from './styles.js';
+import { evaluate, isValidPred, hasRealTeams, formatGameInfo } from './prediction.js';
 
-// ── Domain helpers ──────────────────────────────────────────────────────────────
-
-function formatGameInfo(game) {
-  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  if (!game.local_date) return '';
-  const [datePart, timePart] = game.local_date.split(' ');
-  const [m, d] = datePart.split('/');
-  const date = `${d} ${months[Number(m) - 1]} · ${timePart}`;
-  const roundMap = { group: 'Grupos', r32: 'R32', r16: 'Octavos', qf: 'Cuartos', sf: 'Semi', third: '3er Lugar', final: 'Final' };
-  const round = roundMap[game.type] ?? game.type?.toUpperCase() ?? '';
-  return `${date} · ${round}`;
-}
-
-function hasRealTeams(game) {
-  return game.home_team_id !== '0' && game.away_team_id !== '0';
-}
-
-function isValidPred(pred) {
-  return pred != null
-      && pred.home !== '' && pred.away !== ''
-      && !isNaN(Number(pred.home)) && !isNaN(Number(pred.away));
-}
-
-function evaluate(pred, game) {
-  const ph = Number(pred.home), pa = Number(pred.away);
-  const gh = Number(game.home_score), ga = Number(game.away_score);
-  if (ph === gh && pa === ga) return 'exact';
-  const predResult = ph > pa ? 'home' : ph < pa ? 'away' : 'draw';
-  const gameResult = gh > ga ? 'home' : gh < ga ? 'away' : 'draw';
-  return predResult === gameResult ? 'result' : 'miss';
-}
+// ── UI helpers ───────────────────────────────────────────────────────────────────
 
 function filterGames(games, query) {
   if (query.length < 2) return games;
