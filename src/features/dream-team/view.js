@@ -299,35 +299,31 @@ export function renderDreamTeam(outlet) {
 
   component(outlet, state, render);
 
-  // Search: restore focus/cursor after re-render (innerHTML replacement loses focus)
-  delegate(outlet, 'input', '#dt-search', (e, target) => {
-    const val = target.value;
-    const start = target.selectionStart;
-    const end   = target.selectionEnd;
-    state.set({ search: val });
-    const input = outlet.querySelector('#dt-search');
-    if (input) { input.focus(); input.setSelectionRange(start, end); }
-  });
+  const off = [
+    delegate(outlet, 'input', '#dt-search', (_, target) => {
+      state.set({ search: target.value });
+    }),
 
-  delegate(outlet, 'click', '[data-dt-add]', (_, target) => {
-    const { selected } = state.get();
-    if (selected.length >= 11) return;
-    const id = target.dataset.dtAdd;
-    if (selected.includes(id)) return;
-    state.set({ selected: [...selected, id] });
-  });
+    delegate(outlet, 'click', '[data-dt-add]', (_, target) => {
+      const id = target.dataset.dtAdd;
+      state.update(s => {
+        if (s.selected.length >= 11 || s.selected.includes(id)) return {};
+        return { selected: [...s.selected, id] };
+      });
+    }),
 
-  delegate(outlet, 'click', '[data-dt-remove]', (_, target) => {
-    const id = target.dataset.dtRemove;
-    state.set({ selected: state.get().selected.filter(s => s !== id) });
-  });
+    delegate(outlet, 'click', '[data-dt-remove]', (_, target) => {
+      const id = target.dataset.dtRemove;
+      state.update(s => ({ selected: s.selected.filter(x => x !== id) }));
+    }),
 
-  delegate(outlet, 'click', '[data-dt-retry]', () => {
-    state.set({ teamsStatus: 'loading', gamesStatus: 'loading', retryIn: null });
-    loadData(state);
-  });
+    delegate(outlet, 'click', '[data-dt-retry]', () => {
+      state.set({ teamsStatus: 'loading', gamesStatus: 'loading', retryIn: null });
+      loadData(state);
+    }),
+  ];
 
   loadData(state);
 
-  return () => state.destroy();
+  return () => { state.destroy(); off.forEach(c => c()); };
 }

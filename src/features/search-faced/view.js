@@ -439,59 +439,48 @@ export function renderHeadToHead(outlet) {
 
   component(outlet, state, render);
 
-  // Restore input focus after re-render (innerHTML replacement loses focus)
-  const restoreFocus = (selector, start, end) => {
-    const el = outlet.querySelector(selector);
-    if (el) { el.focus(); el.setSelectionRange(start, end); }
-  };
+  const off = [
+    delegate(outlet, 'input', '[data-sf-slot]', (_, target) => {
+      const slot = target.dataset.sfSlot;
+      const val  = target.value;
+      // Typing over a selected team clears it and restarts the filter
+      state.update(s => s[`team${slot}`]
+        ? { [`team${slot}`]: null, [`query${slot}`]: val }
+        : { [`query${slot}`]: val }
+      );
+    }),
 
-  delegate(outlet, 'input', '[data-sf-slot]', (_, target) => {
-    const slot  = target.dataset.sfSlot;
-    const val   = target.value;
-    const start = target.selectionStart;
-    const end   = target.selectionEnd;
+    delegate(outlet, 'click', '[data-sf-pick]', (_, target) => {
+      const slot = target.dataset.sfPick;
+      const team = {
+        id:        target.dataset.sfId,
+        name_en:   target.dataset.sfName,
+        flag:      target.dataset.sfFlag,
+        fifa_code: target.dataset.sfCode,
+      };
+      state.set({ [`team${slot}`]: team, [`query${slot}`]: team.name_en });
+    }),
 
-    // Typing over a selected team clears it and restarts the search
-    state.set(state.get()[`team${slot}`]
-      ? { [`team${slot}`]: null, [`query${slot}`]: val }
-      : { [`query${slot}`]: val }
-    );
-    restoreFocus(`[data-sf-slot="${slot}"]`, start, end);
-  });
+    delegate(outlet, 'click', '[data-sf-compare]', () => runCompare(state)),
 
-  delegate(outlet, 'click', '[data-sf-pick]', (_, target) => {
-    const slot = target.dataset.sfPick;
-    const team = {
-      id:        target.dataset.sfId,
-      name_en:   target.dataset.sfName,
-      flag:      target.dataset.sfFlag,
-      fifa_code: target.dataset.sfCode,
-    };
-    state.set({
-      [`team${slot}`]:  team,
-      [`query${slot}`]: team.name_en,
-    });
-  });
+    delegate(outlet, 'click', '[data-sf-reset]', () => {
+      state.set({
+        queryA: '', queryB: '',
+        teamA: null, teamB: null,
+        compared: false,
+        colAStatus: 'idle', colBStatus: 'idle',
+        resultA: null, resultB: null,
+        groupA: null, groupB: null,
+        h2hGame: null,
+        gamesSavedAt: null, groupsSavedAt: null,
+        globalStatus: 'idle', retryIn: null,
+      });
+    }),
 
-  delegate(outlet, 'click', '[data-sf-compare]', () => runCompare(state));
-
-  delegate(outlet, 'click', '[data-sf-reset]', () => {
-    state.set({
-      queryA: '', queryB: '',
-      teamA: null, teamB: null,
-      compared: false,
-      colAStatus: 'idle', colBStatus: 'idle',
-      resultA: null, resultB: null,
-      groupA: null, groupB: null,
-      h2hGame: null,
-      gamesSavedAt: null, groupsSavedAt: null,
-      globalStatus: 'idle', retryIn: null,
-    });
-  });
-
-  delegate(outlet, 'click', '[data-sf-retry]', () => runCompare(state));
+    delegate(outlet, 'click', '[data-sf-retry]', () => runCompare(state)),
+  ];
 
   loadTeams(state);
 
-  return () => state.destroy();
+  return () => { state.destroy(); off.forEach(c => c()); };
 }

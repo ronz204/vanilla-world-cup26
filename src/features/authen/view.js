@@ -121,7 +121,7 @@ export function renderLogin(outlet) {
     `;
   });
 
-  delegate(outlet, "submit", "form", async (e) => {
+  const off = delegate(outlet, "submit", "form", async (e) => {
     e.preventDefault();
     if (state.get().status === "loading") return;
 
@@ -130,7 +130,7 @@ export function renderLogin(outlet) {
     const passwordVal = password.value;
 
     const error = validate({ email: emailVal, password: passwordVal });
-    if (error) { state.set({ status: "error", errorMsg: error }); return }
+    if (error) { state.set({ status: "error", errorMsg: error }); return; }
     state.set({ status: "loading", errorMsg: null });
 
     try {
@@ -142,5 +142,5 @@ export function renderLogin(outlet) {
     }
   });
 
-  return () => state.destroy();
+  return () => { state.destroy(); off(); };
 }

@@ -70,7 +70,7 @@ export function mountShell(el) {
   component(el, state, render);
 
   delegate(el, 'click', '[data-shell-hamburger]', () => {
-    state.set({ mobileOpen: !state.get().mobileOpen });
+    state.update(s => ({ mobileOpen: !s.mobileOpen }));
   });
 
   delegate(el, 'click', '[data-shell-logout]', () => {
