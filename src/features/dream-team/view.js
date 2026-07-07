@@ -4,18 +4,12 @@ import { delegate }  from '@context/delegate.js';
 import { html, raw } from '@context/escape.js';
 import { AuthError } from '@shared/http/errors.js';
 import { clearToken } from '@shared/http/auth.js';
+import { timeAgo }   from '@shared/utils.js';
 import { api }       from './api.js';
 import { calcGoals, totalGoals } from './goals.js';
 import { w }         from './styles.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function timeAgo(savedAt) {
-  const mins = Math.floor((Date.now() - savedAt) / 60_000);
-  if (mins < 1)  return 'hace menos de 1m';
-  if (mins < 60) return `hace ${mins}m`;
-  return `hace ${Math.floor(mins / 60)}h`;
-}
 
 function staleBadge(savedAt) {
   return `<span class="${w.stalePill}">Guardado${savedAt ? ' · ' + timeAgo(savedAt) : ''}</span>`;
