@@ -8,6 +8,7 @@ import { renderDreamTeam }   from "@features/dream-team/view.js";
 import { renderHeadToHead } from "@features/search-faced/view.js";
 import { renderTracker }   from "@features/lucky-surprise/view.js";
 import { renderQuiniela }  from "@features/quiniela-local/view.js";
+import { renderDraw }      from "@features/crazy-raffle/view.js";
 
 const shell  = mountShell(document.querySelector('#shell'));
 const outlet = document.querySelector('#app');
@@ -38,5 +39,5 @@ router([
   route('/head-to-head', withAuth(renderHeadToHead)),
   route('/tracker',      withAuth(renderTracker)),
   route('/quiniela',     withAuth(renderQuiniela)),
-  route('/draw',         withAuth(renderComingSoon('Sorteo Loco'))),
+  route('/draw',         withAuth(renderDraw)),
 ], outlet);
