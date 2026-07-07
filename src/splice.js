@@ -4,7 +4,8 @@ import { router, route } from "@context/routing.js";
 import { createGuards } from "@context/guards.js";
 import { mountShell } from "@shared/shell/view.js";
 import { renderLogin }     from "@features/authen/view.js";
-import { renderDreamTeam } from "@features/dream-team/view.js";
+import { renderDreamTeam }   from "@features/dream-team/view.js";
+import { renderHeadToHead } from "@features/search-faced/view.js";
 
 const shell  = mountShell(document.querySelector('#shell'));
 const outlet = document.querySelector('#app');
@@ -32,7 +33,7 @@ function renderComingSoon(label) {
 router([
   route('/',             withLogin(renderLogin)),
   route('/dream-team',   withAuth(renderDreamTeam)),
-  route('/head-to-head', withAuth(renderComingSoon('Cara a Cara'))),
+  route('/head-to-head', withAuth(renderHeadToHead)),
   route('/tracker',      withAuth(renderComingSoon('Sorpresas'))),
   route('/quiniela',     withAuth(renderComingSoon('Quiniela'))),
   route('/draw',         withAuth(renderComingSoon('Sorteo Loco'))),
