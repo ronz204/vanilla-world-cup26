@@ -2,7 +2,6 @@ import { store }     from '@context/store.js';
 import { component } from '@context/component.js';
 import { delegate }  from '@context/delegate.js';
 import { html, raw } from '@context/escape.js';
-import { cache }     from '@shared/http/cache.js';
 import { AuthError } from '@shared/http/errors.js';
 import { clearToken } from '@shared/http/auth.js';
 import { api }       from './api.js';
@@ -18,10 +17,8 @@ function timeAgo(savedAt) {
   return `hace ${Math.floor(mins / 60)}h`;
 }
 
-function staleBadge(endpoint) {
-  const entry = cache.get(endpoint);
-  const time  = entry ? timeAgo(entry.savedAt) : '';
-  return `<span class="${w.panelStaleBadge}">Guardado${time ? ' · ' + time : ''}</span>`;
+function staleBadge(savedAt) {
+  return `<span class="${w.stalePill}">Guardado${savedAt ? ' · ' + timeAgo(savedAt) : ''}</span>`;
 }
 
 // ── Status Pill ───────────────────────────────────────────────────────────────
@@ -48,6 +45,16 @@ function renderPill({ teamsStatus, gamesStatus, retryIn }) {
     </div>`;
 }
 
+// ── Shared panel head (both panels) ──────────────────────────────────────────
+
+function renderPanelHead(title, savedAt = null) {
+  return html`
+    <div class="${w.panelHead}">
+      <h3 class="${w.panelTitle}">${title}</h3>
+      ${savedAt ? raw(staleBadge(savedAt)) : ''}
+    </div>`;
+}
+
 // ── Stub ──────────────────────────────────────────────────────────────────────
 
 function renderStub(state) {
@@ -69,10 +76,10 @@ function renderSkeletons() {
 }
 
 function renderTeamRow(team, isSelected, isDisabled) {
-  const rowCls = isSelected ? `${w.teamRow} ${w.teamRowSelected}` : w.teamRow;
+  const rowCls = isSelected ? `${w.row} ${w.rowSelected}` : w.row;
   return html`
     <div class="${rowCls}">
-      <div class="${w.teamLeft}">
+      <div class="${w.rowLeft}">
         <img src="${team.flag}" alt="${team.name_en}" class="${w.teamFlag}" loading="lazy" />
         <span class="${w.teamName}">${team.name_en}</span>
         <span class="${w.teamCode}">${team.fifa_code}</span>
@@ -87,21 +94,17 @@ function renderTeamRow(team, isSelected, isDisabled) {
 }
 
 function renderAvailablePanel(state) {
-  const { allTeams, selected, search, teamsStatus } = state;
+  const { allTeams, selected, search, teamsStatus, teamsSavedAt } = state;
 
   if (teamsStatus === 'loading') {
     return html`
-      <div class="${w.panelHead}">
-        <h3 class="${w.panelTitle}">Equipos disponibles</h3>
-      </div>
+      ${raw(renderPanelHead('Equipos disponibles'))}
       <div class="flex flex-col gap-1.5">${raw(renderSkeletons())}</div>`;
   }
 
   if (teamsStatus === 'error') {
     return html`
-      <div class="${w.panelHead}">
-        <h3 class="${w.panelTitle}">Equipos disponibles</h3>
-      </div>
+      ${raw(renderPanelHead('Equipos disponibles'))}
       <div class="${w.errorBanner}">
         <span class="${w.errorText}">No se pudo cargar la lista de equipos.</span>
         <button data-dt-retry class="${w.retryBtn}">Reintentar</button>
@@ -124,10 +127,7 @@ function renderAvailablePanel(state) {
       : `<p class="${w.noResults}">No hay equipos disponibles.</p>`;
 
   return html`
-    <div class="${w.panelHead}">
-      <h3 class="${w.panelTitle}">Equipos disponibles</h3>
-      ${teamsStatus === 'stale' ? raw(staleBadge('/get/teams')) : ''}
-    </div>
+    ${raw(renderPanelHead('Equipos disponibles', teamsStatus === 'stale' ? teamsSavedAt : null))}
     <div class="${w.searchWrap}">
       <span class="${w.searchIcon}">search</span>
       <input
@@ -140,14 +140,14 @@ function renderAvailablePanel(state) {
       />
     </div>
     ${isAtLimit ? raw(`<div class="${w.limitBanner}">Límite de 11 equipos alcanzado.</div>`) : ''}
-    <div class="${w.teamList}">${raw(listContent)}</div>`;
+    <div class="${w.scrollList}">${raw(listContent)}</div>`;
 }
 
 // ── Right panel — Dream Team ──────────────────────────────────────────────────
 
 function renderGoalsBadge(team, allGames, gamesStatus) {
   if (gamesStatus !== 'ok' && gamesStatus !== 'stale') {
-    return html`<span class="${w.pendingBadge}">Pendiente</span>`;
+    return html`<span class="${w.stalePill}">Pendiente</span>`;
   }
   const goals = calcGoals(team.id, allGames);
   return html`
@@ -156,15 +156,15 @@ function renderGoalsBadge(team, allGames, gamesStatus) {
     </span>`;
 }
 
-function renderSelectedRow(team, state) {
+function renderSelectedRow(team, allGames, gamesStatus) {
   return html`
-    <div class="${w.selectedRow}">
-      <div class="${w.selectedLeft}">
+    <div class="${w.row}">
+      <div class="${w.rowLeft}">
         <img src="${team.flag}" alt="${team.name_en}" class="${w.teamFlag}" loading="lazy" />
         <span class="${w.teamName}">${team.name_en}</span>
       </div>
-      <div class="${w.selectedRight}">
-        ${raw(renderGoalsBadge(team, state.allGames, state.gamesStatus))}
+      <div class="${w.rowRight}">
+        ${raw(renderGoalsBadge(team, allGames, gamesStatus))}
         <button
           data-dt-remove="${team.id}"
           class="${w.removeBtn}"
@@ -177,29 +177,26 @@ function renderSelectedRow(team, state) {
 }
 
 function renderDreamPanel(state) {
-  const { selected, allTeams, gamesStatus } = state;
-  const selectedTeams = selected
-    .map(id => allTeams.find(t => t.id === id))
-    .filter(Boolean);
+  const { selected, allTeams, allGames, gamesStatus, gamesSavedAt } = state;
+
+  const teamById      = new Map(allTeams.map(t => [t.id, t]));
+  const selectedTeams = selected.map(id => teamById.get(id)).filter(Boolean);
 
   return html`
-    <div class="${w.panelHead}">
-      <h3 class="${w.panelTitle}">Mi Dream Team</h3>
-      ${gamesStatus === 'stale' ? raw(staleBadge('/get/games')) : ''}
-    </div>
+    ${raw(renderPanelHead('Mi Dream Team', gamesStatus === 'stale' ? gamesSavedAt : null))}
     ${gamesStatus === 'error' ? raw(`
       <div class="${w.gamesWarn}">
         <span class="${w.gamesWarnText}">No se pudieron cargar los goles.</span>
         <button data-dt-retry class="${w.retryBtn}">Reintentar</button>
       </div>`) : ''}
-    <div class="${w.selectedList}">
+    <div class="${w.scrollList}">
       ${selected.length === 0
         ? raw(`
           <div class="${w.emptyState}">
             <span class="${w.emptyIcon}">group</span>
             <p class="${w.emptyText}">Elegí tu primer equipo para arrancar.</p>
           </div>`)
-        : raw(selectedTeams.map(t => renderSelectedRow(t, state)).join(''))
+        : raw(selectedTeams.map(t => renderSelectedRow(t, allGames, gamesStatus)).join(''))
       }
     </div>`;
 }
@@ -207,7 +204,7 @@ function renderDreamPanel(state) {
 // ── Footer ────────────────────────────────────────────────────────────────────
 
 function renderFooter(state) {
-  const { selected, allGames, gamesStatus } = state;
+  const { selected, allGames, gamesStatus, gamesSavedAt } = state;
   const total = totalGoals(selected, allGames, gamesStatus);
 
   return html`
@@ -215,7 +212,7 @@ function renderFooter(state) {
     <div class="${w.footerStrip}">
       <span class="${w.footerLabel}">Total Goles</span>
       <div class="${w.footerRight}">
-        ${gamesStatus === 'stale' ? raw(`<span class="${w.footerStaleBadge}">Datos guardados</span>`) : ''}
+        ${gamesStatus === 'stale' ? raw(staleBadge(gamesSavedAt)) : ''}
         ${total !== null
           ? raw(`<span class="${w.footerTotal}">${total}</span>`)
           : raw(`<span class="${w.footerDash}">—</span>`)
@@ -267,9 +264,9 @@ async function loadData(state) {
   if (teamsResult.status === 'fulfilled') {
     state.set({ allTeams: teamsResult.value, teamsStatus: 'ok' });
   } else {
-    const teams = api.teamsFromCache();
-    state.set(teams
-      ? { allTeams: teams, teamsStatus: 'stale' }
+    const cached = api.teamsFromCache();
+    state.set(cached
+      ? { allTeams: cached.data, teamsStatus: 'stale', teamsSavedAt: cached.savedAt }
       : { teamsStatus: 'error' }
     );
   }
@@ -277,9 +274,9 @@ async function loadData(state) {
   if (gamesResult.status === 'fulfilled') {
     state.set({ allGames: gamesResult.value, gamesStatus: 'ok', retryIn: null });
   } else {
-    const games = api.gamesFromCache();
-    state.set(games
-      ? { allGames: games, gamesStatus: 'stale', retryIn: null }
+    const cached = api.gamesFromCache();
+    state.set(cached
+      ? { allGames: cached.data, gamesStatus: 'stale', gamesSavedAt: cached.savedAt, retryIn: null }
       : { gamesStatus: 'error', retryIn: null }
     );
   }
@@ -289,20 +286,22 @@ async function loadData(state) {
 
 export function renderDreamTeam(outlet) {
   const state = store({
-    teamsStatus: 'loading',
-    gamesStatus: 'loading',
-    retryIn:     null,
-    allTeams:    [],
-    allGames:    [],
-    selected:    [],
-    search:      '',
+    teamsStatus:  'loading',
+    gamesStatus:  'loading',
+    retryIn:      null,
+    teamsSavedAt: null,
+    gamesSavedAt: null,
+    allTeams:     [],
+    allGames:     [],
+    selected:     [],
+    search:       '',
   });
 
   component(outlet, state, render);
 
   // Search: restore focus/cursor after re-render (innerHTML replacement loses focus)
   delegate(outlet, 'input', '#dt-search', (e, target) => {
-    const val   = target.value;
+    const val = target.value;
     const start = target.selectionStart;
     const end   = target.selectionEnd;
     state.set({ search: val });
