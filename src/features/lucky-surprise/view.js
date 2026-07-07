@@ -5,8 +5,9 @@ import { html, raw } from '@context/escape.js';
 import { AuthError } from '@shared/http/errors.js';
 import { clearToken } from '@shared/http/auth.js';
 import { timeAgo }   from '@shared/utils.js';
-import { api }       from './api.js';
-import { w }         from './styles.js';
+import { api }                              from './api.js';
+import { w }                               from './styles.js';
+import { getRelevantGame, getMatchStatus } from './match.js';
 
 // ── Domain helpers ─────────────────────────────────────────────────────────────
 
@@ -21,29 +22,6 @@ function filterTeams(allTeams, query) {
     t.name_en?.toLowerCase().includes(q) ||
     t.fifa_code?.toLowerCase().includes(q)
   );
-}
-
-// Returns the most recent game for a team that has started or finished
-function getRelevantGame(teamId, games) {
-  const played = games.filter(g =>
-    (g.home_team_id === teamId || g.away_team_id === teamId) &&
-    (g.finished === 'TRUE' || g.time_elapsed !== 'notstarted')
-  );
-  return played.at(-1) ?? null;
-}
-
-function getMatchStatus(teamId, game) {
-  if (!game) return null;
-  const isHome     = game.home_team_id === teamId;
-  const myScore    = Number(isHome ? game.home_score : game.away_score);
-  const theirScore = Number(isHome ? game.away_score : game.home_score);
-  const finished   = game.finished === 'TRUE';
-  return {
-    myScore, theirScore, finished,
-    live:    !finished && game.time_elapsed !== 'notstarted',
-    losing:  myScore < theirScore,
-    winning: myScore > theirScore,
-  };
 }
 
 // ── Status Pill ────────────────────────────────────────────────────────────────
