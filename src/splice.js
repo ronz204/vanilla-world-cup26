@@ -6,6 +6,7 @@ import { mountShell } from "@shared/shell/view.js";
 import { renderLogin }     from "@features/authen/view.js";
 import { renderDreamTeam }   from "@features/dream-team/view.js";
 import { renderHeadToHead } from "@features/search-faced/view.js";
+import { renderTracker }   from "@features/lucky-surprise/view.js";
 
 const shell  = mountShell(document.querySelector('#shell'));
 const outlet = document.querySelector('#app');
@@ -34,7 +35,7 @@ router([
   route('/',             withLogin(renderLogin)),
   route('/dream-team',   withAuth(renderDreamTeam)),
   route('/head-to-head', withAuth(renderHeadToHead)),
-  route('/tracker',      withAuth(renderComingSoon('Sorpresas'))),
+  route('/tracker',      withAuth(renderTracker)),
   route('/quiniela',     withAuth(renderComingSoon('Quiniela'))),
   route('/draw',         withAuth(renderComingSoon('Sorteo Loco'))),
 ], outlet);
