@@ -37,7 +37,9 @@ async function request(method, endpoint, { body, headers = {}, cacheTtl, skipCac
       return data;
 
     } catch (err) {
-      const retryable = err instanceof ServerError || !(err instanceof HttpError);
+      const retryable = err instanceof ServerError
+                     || err instanceof RateLimitError
+                     || !(err instanceof HttpError);
       if (!retryable) throw err;
 
       lastErr = err instanceof HttpError ? err : new NetworkError(endpoint, err);
