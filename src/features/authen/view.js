@@ -136,7 +136,7 @@ export function renderLogin(outlet) {
     try {
       const data = await api.login(emailVal, passwordVal);
       saveToken(data.token);
-      location.hash = "/home";
+      location.hash = "/dream-team";
     } catch (err) {
       state.set({ status: "error", errorMsg: matcher(err) });
     }
