@@ -7,6 +7,7 @@ import { clearToken } from '@shared/http/auth.js';
 import { timeAgo }   from '@shared/utils.js';
 import { api }       from './api.js';
 import { w }         from './styles.js';
+import { findGroupForTeam, findHeadToHeadGame, getGroupPoints } from './compare.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -21,26 +22,6 @@ function filterTeams(allTeams, query) {
     t.name_en?.toLowerCase().includes(q) ||
     t.fifa_code?.toLowerCase().includes(q)
   );
-}
-
-function findGroupForTeam(teamId, groups) {
-  return groups.find(g =>
-    g.teams?.some(t => String(t.team_id) === String(teamId))
-  ) ?? null;
-}
-
-function findHeadToHeadGame(idA, idB, games) {
-  return games.find(g => {
-    const home = String(g.home_team_id);
-    const away = String(g.away_team_id);
-    return (home === String(idA) && away === String(idB)) ||
-           (home === String(idB) && away === String(idA));
-  }) ?? null;
-}
-
-function getGroupPoints(teamId, group) {
-  const entry = group?.teams?.find(t => String(t.team_id) === String(teamId));
-  return entry ? Number(entry.pts) : null;
 }
 
 // ── Status Pill ───────────────────────────────────────────────────────────────
