@@ -1,5 +1,5 @@
-import { client }                                    from '@shared/http/client.js';
-import { cache }                                     from '@shared/http/cache.js';
+import { cache } from '@shared/http/cache.js';
+import { client } from '@shared/http/client.js';
 import { extractTeams, extractGames, extractGroups } from '@shared/http/helpers.js';
 
 const fetchAllTeams = async () =>
@@ -15,7 +15,7 @@ export const api = Object.freeze({
   fetchAllTeams,
   fetchGames,
   fetchGroups,
-  teamsFromCache:  () => cache.extract('/get/teams',  extractTeams),
-  gamesFromCache:  () => cache.extract('/get/games',  extractGames),
+  teamsFromCache: () => cache.extract('/get/teams', extractTeams),
+  gamesFromCache: () => cache.extract('/get/games', extractGames),
   groupsFromCache: () => cache.extract('/get/groups', extractGroups),
 });

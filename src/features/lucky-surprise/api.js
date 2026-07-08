@@ -1,5 +1,5 @@
-import { client }                     from '@shared/http/client.js';
-import { cache }                      from '@shared/http/cache.js';
+import { cache } from '@shared/http/cache.js';
+import { client } from '@shared/http/client.js';
 import { extractTeams, extractGames } from '@shared/http/helpers.js';
 
 const FAV_KEY = 'wc26:tracker:favorites';
@@ -16,7 +16,7 @@ const loadFavorites = () => {
 };
 
 const saveFavorites = (ids) => {
-  try { localStorage.setItem(FAV_KEY, JSON.stringify(ids)); } catch {}
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(ids)); } catch { }
 };
 
 export const api = Object.freeze({

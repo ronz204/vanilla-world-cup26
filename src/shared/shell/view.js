@@ -1,7 +1,7 @@
-import { store } from '@context/store.js';
-import { component } from '@context/component.js';
-import { delegate } from '@context/delegate.js';
 import { wind } from './styles.js';
+import { store } from '@context/store.js';
+import { delegate } from '@context/delegate.js';
+import { component } from '@context/component.js';
 import { clearToken } from '@shared/http/auth.js';
 
 const NAV_LINKS = [

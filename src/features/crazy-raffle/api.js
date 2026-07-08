@@ -1,5 +1,5 @@
-import { client }       from '@shared/http/client.js';
-import { cache }        from '@shared/http/cache.js';
+import { cache } from '@shared/http/cache.js';
+import { client } from '@shared/http/client.js';
 import { extractTeams } from '@shared/http/helpers.js';
 
 const DRAW_KEY = 'wc26:draw:result';
@@ -13,7 +13,7 @@ const loadDraw = () => {
 };
 
 const saveDraw = (data) => {
-  try { localStorage.setItem(DRAW_KEY, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(DRAW_KEY, JSON.stringify(data)); } catch { }
 };
 
 export const api = Object.freeze({

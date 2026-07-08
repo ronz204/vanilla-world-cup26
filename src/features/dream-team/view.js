@@ -1,13 +1,15 @@
-import { store }     from '@context/store.js';
-import { component } from '@context/component.js';
-import { delegate }  from '@context/delegate.js';
+import { api } from './api.js';
+import { w } from './styles.js';
+
+import { store } from '@context/store.js';
 import { html, raw } from '@context/escape.js';
-import { AuthError } from '@shared/http/errors.js';
+import { delegate } from '@context/delegate.js';
+import { component } from '@context/component.js';
+
+import { timeAgo } from '@shared/utils.js';
 import { clearToken } from '@shared/http/auth.js';
-import { timeAgo }   from '@shared/utils.js';
-import { api }       from './api.js';
+import { AuthError } from '@shared/http/errors.js';
 import { calcGoals, totalGoals } from './goals.js';
-import { w }         from './styles.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

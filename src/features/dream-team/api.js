@@ -1,5 +1,5 @@
-import { client }                     from '@shared/http/client.js';
-import { cache }                      from '@shared/http/cache.js';
+import { cache } from '@shared/http/cache.js';
+import { client } from '@shared/http/client.js';
 import { extractTeams, extractGames } from '@shared/http/helpers.js';
 
 const fetchTeams = async () =>
