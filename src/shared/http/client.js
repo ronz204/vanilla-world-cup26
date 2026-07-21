@@ -12,6 +12,8 @@ async function request(method, endpoint, { body, headers = {}, cacheTtl, skipCac
   }
 
   const token = getToken();
+  if (!token && endpoint !== '/auth/authenticate') throw new AuthError(endpoint);
+
   const reqHeaders = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -23,7 +25,7 @@ async function request(method, endpoint, { body, headers = {}, cacheTtl, skipCac
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       const res = await fetch(BASE_URL + endpoint, {
-        method, headers: reqHeaders,
+        method, headers: reqHeaders, cache: 'no-store',
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       });
 

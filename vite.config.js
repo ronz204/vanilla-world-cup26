@@ -16,6 +16,7 @@ export default defineConfig({
       "/api": {
         changeOrigin: true,
         target: "https://worldcup26.ir",
+        /* target: "http://127.0.0.1:1", */
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
