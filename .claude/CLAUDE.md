@@ -1,53 +1,19 @@
 # CLAUDE.md — Vanilla World Cup 26
 
-## Qué es este proyecto
+## Contexto
 
-SPA de JavaScript vanilla (sin frameworks) construida con **Vite**, que consume la API REST pública del Mundial 2026 (`https://worldcup26.ir`). Es un laboratorio universitario individual con énfasis en manejo de estado, resiliencia ante fallos de red, y un micro-framework de reactividad hecho a mano.
+SPA de JavaScript vanilla (sin frameworks) construida con **Vite**, que consume la API REST pública del Mundial 2026 (`https://worldcup26.ir`). Laboratorio universitario individual — el código debe ser explicable en defensa oral.
 
-Los **5 subproyectos son de entrega obligatoria**: Dream Team, Buscador Cara a Cara, Seguidor de Sorpresas, Quiniela Local, Simulador de Sorteo Loco. Se empieza por Dream Team (diseño más avanzado), pero `src/context/` y `src/shared/http/` deben soportar los 5 desde el día uno.
-
----
-
-## Stack
-
-- **Build**: Vite 8 (vanilla template, sin plugin de framework)
-- **Lenguaje**: JavaScript ES modules — sin TypeScript
-- **CSS**: Tailwind CSS v4 (`@tailwindcss/vite` plugin)
-- **Persistencia**: `localStorage` exclusivamente — no hay backend propio
+- **Build**: Vite 8, vanilla template
+- **Lenguaje**: JS ES modules — sin TypeScript
+- **CSS**: Tailwind CSS v4 (`@tailwindcss/vite`)
+- **Persistencia**: `localStorage` exclusivamente
 - **HTTP**: `fetch` nativo con `async/await`
-- **Runtime de dev**: `bun` (package manager + runner) → `bun run dev`
+- **Dev**: `bun run dev`
 
 ---
 
-## Estructura del proyecto
-
-```
-src/
-  splice.js               # Entry point — monta el router en #app
-  style.css               # CSS global (Tailwind + tokens CSS)
-  context/                # Micro-framework propio
-    store.js              # store(initial) → { get, set, subscribe, reset, destroy }
-    routing.js            # route(pattern, view) + router(routes, outlet)
-    component.js          # component(root, store, render) — reactive mount
-    delegate.js           # delegate(root, event, selector, handler) — event delegation
-    escape.js             # html`…` tagged template con XSS escaping; raw(str) para HTML seguro
-  shared/
-    http/
-      client.js           # cliente HTTP centralizado: get/post/put/patch/delete
-      auth.js             # getToken / saveToken / clearToken / hasToken (key: wc26:token)
-      cache.js            # cache.get/set/clear (localStorage, key prefix: wc26:)
-      retries.js          # MAX_ATTEMPTS=4, getDelay(attempt)=1000*2^attempt, wait(ms, onTick)
-      errors.js           # HttpError, AuthError(401), RateLimitError(429), ServerError(500), NetworkError
-  features/
-    authen/               # Feature de autenticación (implementada)
-      api.js              # Llamadas a /auth/register y /auth/authenticate
-      view.js             # renderLogin(outlet) — usa store + component + delegate
-      styles.js           # Clases Tailwind agrupadas por slot (objeto `wind`)
-      errors.js           # matcher(err) → string de error legible para el usuario
-      valids.js           # validate({ email, password }) → string | null
-```
-
-### Aliases de path (vite.config.js)
+## Aliases de path
 
 | Alias | Resuelve a |
 |---|---|
@@ -56,122 +22,295 @@ src/
 | `@features` | `src/features/` |
 | `@assets` | `src/assets/` |
 
-### Proxy de API (dev)
-
-Vite reescribe `/api/*` → `https://worldcup26.ir/*`. Todo `fetch` en el cliente usa `/api` como base, nunca la URL real directamente. El `client.js` ya tiene `BASE_URL = '/api'`.
+Proxy de dev: Vite reescribe `/api/*` → `https://worldcup26.ir/*`. Nunca usar la URL real directamente.
 
 ---
 
-## Cómo funciona el micro-framework (`src/context/`)
+## Micro-framework — `src/context/`
 
-### `store(initial)`
+> Esta capa es el núcleo. Siempre reutilizarla — nunca duplicar su lógica en features.
+
+### `store.js` — `store(initial)`
 
 ```js
-const state = store({ status: "idle", count: 0 });
-state.get()           // snapshot inmutable actual
-state.set({ count: 1 }) // merge parcial + notifica suscriptores (no notifica si no cambia nada)
-state.subscribe(fn)   // retorna un unsubscribe()
-state.destroy()       // limpia todos los suscriptores (llamar en el cleanup del router)
+const state = store({ status: 'idle', teams: [] });
+
+state.get()              // snapshot inmutable actual
+state.set({ status: 'ok' })     // merge parcial — solo notifica si algo cambió
+state.update(s => ({ count: s.count + 1 }))  // merge con función (evita stale closure)
+state.subscribe(fn)      // fn(state) cada vez que cambia; retorna unsubscribe()
+state.reset()            // vuelve a `initial` y notifica
+state.destroy()          // limpia todos los suscriptores (llamar en cleanup de ruta)
 ```
 
-### `component(root, store, render)`
+La notificación es síncrona. `set` y `update` no notifican si ningún valor de clave cambió (comparación `===` por clave).
 
-Monta un componente reactivo: llama `render(state)` de entrada y cada vez que el store notifica. `render` debe devolver un string HTML. Retorna el `unsubscribe` del store.
+### `component.js` — `component(root, store, render)`
+
+Monta un componente reactivo: llama `render(state)` de entrada y en cada cambio del store.
 
 ```js
-component(outlet, state, ({ status }) => html`<p>${status}</p>`);
+const unsub = component(outlet, state, ({ status, teams }) =>
+  html`<ul>${teams.map(t => html`<li>${t.name}</li>`)}</ul>`
+);
+// unsub() para desmontar
 ```
 
-### `router(routes, outlet)` + `route(pattern, view)`
+- `render` debe devolver un string HTML.
+- Preserva el foco del elemento activo antes de re-renderizar (para inputs con `id` o `data-*`).
+- Retorna el `unsubscribe` del store.
 
-Router basado en `location.hash`. Cada `view(outlet, params)` puede devolver un cleanup que el router llama al salir de la ruta.
+### `routing.js` — `route()` + `router()`
+
+Router basado en `location.hash`.
 
 ```js
-router([
+const nav = router([
   route('/', renderLogin),
-  route('/home', renderHome),
-  route('/team/:id', renderTeam),
-], document.querySelector('#app'));
+  route('/dream-team', renderDreamTeam),
+  route('/team/:id', renderTeam),   // params.id disponible
+], outlet);
+
+nav.navigate('/dream-team');  // cambia hash
+nav.current();                // ruta actual sin '#'
 ```
 
-### `html\`…\`` y `raw(str)`
+- Cada `view(outlet, params)` puede retornar una función de cleanup que el router llama al salir.
+- Rutas sin match muestran `<p>404</p>`.
 
-Tagged template que escapa automáticamente los valores interpolados para prevenir XSS. Usar `raw(str)` solo cuando el HTML ya es seguro (ej. generado internamente, nunca de user input).
+### `guards.js` — `createGuards(shell)`
 
-### `delegate(root, event, selector, handler)`
+Wrappers de ruta para auth.
 
-Event delegation eficiente. Usar siempre en vez de listeners directos en elementos dinámicos.
+```js
+const { withAuth, withLogin } = createGuards(shell);
+
+// withAuth(view) — redirige a '/' si no hay token; muestra el shell
+// withLogin(view) — redirige a '/dream-team' si ya hay token; oculta el shell
+route('/dream-team', withAuth(renderDreamTeam))
+route('/',           withLogin(renderLogin))
+```
+
+### `escape.js` — `html` + `raw()`
+
+```js
+import { html, raw } from '@context/escape.js';
+
+html`<p>${userInput}</p>`          // escapa automáticamente — siempre usar para interpolaciones
+raw('<span class="dot"></span>')   // marca HTML interno como seguro (nunca con user input)
+```
+
+`html` acepta arrays directamente: `html`<ul>${items.map(i => html`<li>${i}</li>`)}</ul>``
+
+### `delegate.js` — `delegate(root, event, selector, handler)`
+
+```js
+const remove = delegate(outlet, 'click', '[data-add-team]', (e, target) => {
+  const id = target.dataset.addTeam;
+  // ...
+});
+// remove() para quitar el listener
+```
+
+Usar **siempre** en lugar de listeners directos en elementos dinámicos. Retorna la función de cleanup.
 
 ---
 
-## Capa HTTP (`src/shared/http/`)
+## Capa HTTP — `src/shared/http/`
 
 ### `client.js`
 
-Envuelve `fetch` con: inyección de JWT, manejo de 401/429/500, backoff exponencial (4 intentos: 1s, 2s, 4s, 8s), y caché en `localStorage`.
-
 ```js
-// Opciones de client.get:
-client.get('/get/teams', {
-  cacheTtl: 60_000,   // ms — si hay entrada fresca, la retorna sin ir a la red
-  skipCache: false,   // true para forzar fetch aunque haya caché
-  onRetryTick: (s) => updateCountdown(s),  // callback con segundos restantes (para 429/500)
+import { client } from '@shared/http/client.js';
+
+// GET con caché
+const data = await client.get('/get/teams', {
+  cacheTtl: 60_000,          // ms — retorna caché fresca sin ir a la red
+  skipCache: false,           // true para forzar fetch
+  onRetryTick: (s) => { },   // callback con segundos restantes (429/500)
 });
+
+// Otros métodos
+client.post('/auth/authenticate', { email, password });
+client.put('/endpoint', body);
+client.patch('/endpoint', body);
+client.delete('/endpoint');
 ```
 
-**Flujo de errores que lanza el client:**
-- `AuthError` (401) → no reintenta, lanza inmediatamente
-- `RateLimitError` (429) → reintenta con backoff
-- `ServerError` (500) → reintenta con backoff
-- `NetworkError` → reintenta con backoff
-- `HttpError` 400/404 → lanza inmediatamente sin reintentar
+**Flujo de errores:**
 
-### Patrón para consumir el client en una feature
+| Error | Comportamiento |
+|---|---|
+| `AuthError` (401) | Lanza inmediatamente, sin reintentar |
+| `RateLimitError` (429) | Backoff exponencial, llama `onRetryTick` |
+| `ServerError` (500+) | Backoff exponencial, llama `onRetryTick` |
+| `NetworkError` | Backoff exponencial |
+| `HttpError` (400, 404…) | Lanza inmediatamente |
+
+Backoff: 4 intentos, delays 1 s / 2 s / 4 s / 8 s (`MAX_ATTEMPTS=4`, `getDelay(attempt)=1000*2^attempt`).
+
+### `errors.js`
 
 ```js
-try {
-  const data = await client.get('/get/teams', { cacheTtl: 30_000 });
-  state.set({ teams: data, status: 'ok' });
-} catch (err) {
-  if (err instanceof AuthError) {
-    clearToken();
-    showSessionExpiredModal();  // nunca location.reload()
-    return;
-  }
-  const cached = cache.get('/get/teams');
-  if (cached) {
-    state.set({ teams: cached.data, status: 'stale' });
-  } else {
-    state.set({ status: 'error' });
-  }
-}
+import { HttpError, AuthError, RateLimitError, ServerError, NetworkError } from '@shared/http/errors.js';
+
+// Jerarquía: AuthError, RateLimitError, ServerError extienden HttpError
+//            NetworkError extiende Error (no HttpError)
+err instanceof AuthError     // 401
+err instanceof RateLimitError // 429
+err instanceof ServerError   // 500+
+err instanceof NetworkError  // sin red
+err instanceof HttpError     // cualquier error HTTP (incluye los 3 anteriores)
 ```
 
-### Polling
-
-Para el Seguidor de Sorpresas (y cualquier subproyecto que necesite "tiempo real"):
+### `cache.js`
 
 ```js
-let timer = setInterval(async () => {
-  // fetch con client, comparar snapshot anterior vs nuevo, actualizar estado
-}, POLL_INTERVAL_MS);  // ajustar al rate limit: max 120 req/min por IP
-// cleanup: clearInterval(timer) en el destroy de la vista
+import { cache } from '@shared/http/cache.js';
+
+cache.set('/get/teams', data)      // guarda en localStorage, key prefix 'wc26:'
+cache.get('/get/teams')            // → { data, savedAt } | null
+cache.clear('/get/teams')          // elimina la entrada
+cache.extract('/get/teams', d => d.teams)  // → { data: [...], savedAt } | null
+                                           // útil para leer caché sin desenvolver manualmente
+```
+
+El `client` cachea el objeto envuelto tal cual (`{ teams: [...] }`). Usar `cache.extract` o desenvolver en la feature.
+
+### `auth.js`
+
+```js
+import { getToken, saveToken, clearToken, hasToken } from '@shared/http/auth.js';
+// localStorage key: 'wc26:token'
+```
+
+### `helpers.js`
+
+```js
+import { extractTeams, extractGames, extractGroups, unwrap } from '@shared/http/helpers.js';
+
+// Desenvolver respuestas envueltas de la API
+const teams = extractTeams(data);   // data.teams o data (si ya es array)
+const games = extractGames(data);
+const groups = extractGroups(data);
+
+// Para otros endpoints:
+const custom = unwrap('stadiums', '/get/stadiums')(data);
+```
+
+### `retries.js`
+
+```js
+import { MAX_ATTEMPTS, getDelay, wait } from '@shared/http/retries.js';
+// MAX_ATTEMPTS = 4
+// getDelay(attempt) = 1000 * 2^attempt → 1000, 2000, 4000, 8000
+// wait(ms, onTick?) — Promise con tick por segundo si onTick está presente
 ```
 
 ---
 
-## API pública — worldcup26.ir
+## Shared — `src/shared/`
 
-**Base URL (dev):** `/api` (proxy Vite → `https://worldcup26.ir`)
+### `shell/view.js` — `mountShell(el)`
 
-### Auth
+```js
+import { mountShell } from '@shared/shell/view.js';
 
-| Endpoint | Método | Body |
+const shell = mountShell(document.querySelector('#shell'));
+shell.show()  // quita el atributo hidden (rutas autenticadas)
+shell.hide()  // pone hidden (login)
+```
+
+Incluye nav con los 5 módulos, botón de logout (`clearToken()` + redirect a `/`), menú hamburguesa mobile. El header se actualiza en `hashchange` sin re-montar la vista completa.
+
+### `utils.js`
+
+```js
+import { timeAgo } from '@shared/utils.js';
+
+timeAgo(savedAt)  // savedAt = Date.now() en el momento del guardado
+// → "hace menos de 1m" | "hace 5m" | "hace 2h"
+```
+
+---
+
+## Patrón estándar de feature
+
+```js
+// api.js — solo llamadas, sin lógica de estado
+import { client } from '@shared/http/client.js';
+import { extractTeams } from '@shared/http/helpers.js';
+
+export async function fetchTeams(opts) {
+  const data = await client.get('/get/teams', opts);
+  return extractTeams(data);
+}
+
+// view.js — orquesta store + component + delegate + cleanup
+import { store } from '@context/store.js';
+import { component } from '@context/component.js';
+import { delegate } from '@context/delegate.js';
+import { html, raw } from '@context/escape.js';
+import { cache } from '@shared/http/cache.js';
+import { AuthError } from '@shared/http/errors.js';
+import { clearToken } from '@shared/http/auth.js';
+import { timeAgo } from '@shared/utils.js';
+import { fetchTeams } from './api.js';
+
+export async function renderFeature(outlet, params) {
+  const state = store({ status: 'loading', teams: [], error: null });
+
+  const unsub = component(outlet, state, renderView);
+  const cleanup1 = delegate(outlet, 'click', '[data-action]', handler);
+
+  async function load() {
+    try {
+      const teams = await fetchTeams({ cacheTtl: 60_000, onRetryTick });
+      state.set({ status: 'ok', teams });
+    } catch (err) {
+      if (err instanceof AuthError) { clearToken(); location.hash = '/'; return; }
+      const entry = cache.extract('/get/teams', d => d.teams);
+      if (entry) state.set({ status: 'stale', teams: entry.data, savedAt: entry.savedAt });
+      else state.set({ status: 'error' });
+    }
+  }
+
+  load();
+
+  return () => { unsub(); cleanup1(); state.destroy(); };
+}
+```
+
+### Estructura de archivos por feature
+
+```
+src/features/<nombre>/
+  api.js        # llamadas HTTP — solo client.get/post y helpers
+  view.js       # renderXxx(outlet, params) → cleanup fn
+  styles.js     # objeto `wind` con clases Tailwind agrupadas por slot
+  [lógica.js]   # módulos de negocio específicos (goals.js, draw.js, etc.)
+```
+
+### Features implementadas
+
+| Ruta | Feature | Archivos extra |
 |---|---|---|
-| `/auth/register` | POST | `{ name, email, password }` |
-| `/auth/authenticate` | POST | `{ email, password }` |
+| `/dream-team` | Dream Team | `goals.js` |
+| `/head-to-head` | Buscador Cara a Cara | `compare.js` |
+| `/tracker` | Seguidor de Sorpresas | `match.js` |
+| `/quiniela` | Quiniela Local | `prediction.js` |
+| `/draw` | Simulador de Sorteo Loco | `draw.js` |
 
-Respuesta: `{ user: {...}, token: "eyJ..." }`. El token dura **84 días** — no hay refresh.
+---
+
+## Gotchas críticos de la API
+
+1. **Respuestas envueltas** — `GET /get/teams` → `{ teams: [...] }`. Usar `extractTeams(data)` o `data.teams`. El caché guarda el objeto envuelto; usar `cache.extract('/get/teams', d => d.teams)`.
+2. **`finished` es string** — comparar `game.finished === "TRUE"`, nunca `=== true`.
+3. **Números como strings** — `home_score`, `away_score`, `pts`, `gf`, `ga` llegan como `"0"`, `"2"`. Usar `Number(x)` antes de operar.
+4. **Knockout sin equipos** — `home_team_id: "0"`, sin `home_team_name_en`; usar `home_team_label` / `away_team_label`.
+5. **Sin refresh de token** — un 401 siempre implica re-login. `clearToken()` + redirect a `/`.
+6. **Rate limit compartido** — 120 req/min por IP (no por usuario). En red universitaria el 429 aparece rápido.
 
 ### Endpoints de datos (todos requieren JWT)
 
@@ -183,120 +322,56 @@ Respuesta: `{ user: {...}, token: "eyJ..." }`. El token dura **84 días** — no
 | `GET /get/teams/?group={letra}` | Equipos de un grupo (A–L) |
 | `GET /get/groups` | 12 tablas de posiciones |
 | `GET /get/group/{id}` / `?name={letra}` | Un grupo |
-| `GET /get/games` | 104 partidos del torneo |
+| `GET /get/games` | 104 partidos |
 | `GET /get/game/{id}` | Un partido |
 | `GET /get/stadiums` | 16 estadios |
 | `GET /health` | Health check (sin auth) |
 
-### Gotchas críticos de la API (leer antes de codear)
-
-1. **Las respuestas de lista vienen envueltas en un objeto**, no como array plano. `GET /get/teams` devuelve `{ "teams": [...] }`, `GET /get/games` devuelve `{ "games": [...] }`. Acceder a `.teams` / `.games` antes de usar el array — no asumir que `client.get()` devuelve el array directamente. El `client` cachea el objeto envuelto tal cual, así que los lectores de caché también deben desenvolver.
-2. **`finished` es string, no boolean** — `"TRUE"` / `"FALSE"` en mayúsculas. Comparar `game.finished === "TRUE"`, no `=== true`.
-2. **Números como strings** — `home_score`, `away_score`, `pts`, `gf`, `ga` llegan como `"0"`, `"2"`, etc. Hacer `Number(...)` o `parseInt(...)` antes de sumar para evitar concatenación de strings en vez de suma.
-3. **Partidos de knockout sin equipos definidos** — `home_team_id: "0"`, sin `home_team_name_en`; usan `home_team_label` / `away_team_label`. El código no puede asumir que siempre hay nombre real.
-4. **No hay endpoint de refresh** — un 401 siempre implica re-login manual.
-5. **Rate limit de `/get/*`: 120 req/min por IP**, no por usuario. En red compartida (universidad) el 429 aparece más rápido de lo esperado.
-
 ---
 
-## Los 5 subproyectos
+## Restricciones del laboratorio (evaluadas en defensa oral)
 
-### 3.1 Dream Team (primero)
-
-**Endpoints**: `GET /get/teams`, `GET /get/games`
-
-- Seleccionar exactamente 11 equipos distintos de una lista buscable.
-- Bloquear al llegar a 11 con mensaje visual en la lista (nunca `alert()`).
-- Goles por equipo = suma de `home_score` (como local) + `away_score` (como visitante) en partidos con `finished === "TRUE"`.
-- Total de goles del Dream Team se actualiza en tiempo real al agregar/quitar equipos.
-- Si falla la petición de goles de un equipo: ese equipo queda con estado "pendiente", el total excluye ese valor **sin producir `NaN`**.
-
-### 3.2 Buscador Cara a Cara
-
-**Endpoints**: `GET /get/team/?name=`, `GET /get/games`, `GET /get/groups`
-
-- Dos inputs de búsqueda con debounce 300–500 ms.
-- Al confirmar ambos equipos: `Promise.all` para traer datos en paralelo.
-- Comparativa lado a lado: bandera, grupo, puntos.
-- Si comparten grupo, mostrar el partido entre ellos (filtrado de `/get/games`).
-- Si una promesa falla y la otra resuelve: mostrar la columna que funcionó, error local en la afectada.
-
-### 3.3 Seguidor de Sorpresas
-
-**Endpoints**: `GET /get/games`, `GET /get/teams`
-
-- Marcar favoritos guardados en `localStorage`.
-- Polling periódico sobre `/get/games` con intervalo configurable.
-- Detectar si un favorito está perdiendo → alerta visual no bloqueante (banner/badge, nunca `alert()`).
-- Si un ciclo de polling falla: conservar último marcador conocido, no resetear a "0-0".
-
-### 3.4 Quiniela Local
-
-**Endpoints**: `GET /get/games`, `GET /get/teams`
-
-- Predicciones de marcador para partidos con `finished === "FALSE"`, guardadas en `localStorage` por id de partido.
-- Al pasar a `finished === "TRUE"`: comparar predicción vs. resultado → marcador exacto / resultado correcto / fallo.
-- Al abrir la app: leer predicciones de `localStorage` de inmediato, aunque la API esté caída.
-
-### 3.5 Simulador de Sorteo Loco
-
-**Endpoints**: `GET /get/teams`
-
-- Obtener los 48 equipos reales.
-- Fisher-Yates para mezclarlos → 12 grupos ficticios de 4.
-- "Repetir sorteo" vuelve a mezclar el arreglo ya obtenido, **sin nueva petición a la API**.
-- Sorteo guardado en `localStorage`; al refrescar se muestra el mismo sorteo anterior.
-
----
-
-## Restricciones no negociables (el lab las evalúa en defensa oral)
-
-Estas reglas nunca deben violarse, aunque simplifiquen algo:
-
-| Prohibición | Alternativa correcta |
+| Prohibido | Alternativa |
 |---|---|
-| `alert()` en cualquier contexto | Mensajes en el DOM (banner, badge, modal) |
-| `.then()` / `.catch()` en cualquier archivo | `async/await` + `try/catch` exclusivamente |
-| `window.location.reload()` para errores de sesión/red | Modal de "sesión expirada" + re-login sin reload |
+| `alert()` | Mensajes en el DOM (banner, badge, modal) |
+| `.then()` / `.catch()` | `async/await` + `try/catch` exclusivamente |
+| `window.location.reload()` | Modal de sesión expirada + re-login sin reload |
 
 **Comportamientos obligatorios:**
 
-- `401` → `clearToken()` + modal de sesión expirada + opción de re-autenticarse
-- `429` → countdown visible del próximo reintento (usar `onRetryTick` del `client.get`)
-- `500` → backoff exponencial automático (ya lo maneja `client.js`)
-- Cada request a `/get/*` lleva `Authorization: Bearer <token>` (lo inyecta `client.js`)
-- Caché de `localStorage` se muestra con indicador "datos no actualizados" (`status: 'stale'`)
+- `401` → `clearToken()` + modal/redirect a `/` (nunca reload)
+- `429` / `500` → countdown visible (`onRetryTick`) — el `client` ya maneja el backoff
+- `stale` → badge pill con `timeAgo(savedAt)` visible en la UI
+- Todo request a `/get/*` lleva `Authorization: Bearer <token>` (lo inyecta `client.js`)
 
 ---
 
 ## Sistema de diseño — "Matchday Ticket"
 
-Concepto: **mesa del fanático organizando su Mundial**. Fondo claro tipo papel, talón perforado separando header de contenido, sellos de color por estado. Referencia: boleto de entrada al estadio.
-
 ### Tokens CSS
 
 ```css
---bg:            #F6F5F0  /* fondo base — papel cálido */
---surface:       #FFFFFF  /* cards, paneles */
---surface-raised: #F0EFE8 /* elementos dentro de una card */
---border:        #DEDACC  /* bordes 1px */
---text:          #12203D  /* texto principal — navy oscuro */
---text-dim:      #6B7280  /* texto secundario, labels */
---accent:        #1E9E5A  /* verde cancha — acento puntual y success */
---gold:          #F2A93B  /* ámbar — goles, datos destacados */
---danger:        #E14F5A  /* errores, "perdiendo" */
---stale:         #9A9484  /* dato cacheado/desactualizado */
+--bg:             #F6F5F0   /* fondo base — papel cálido */
+--surface:        #FFFFFF   /* cards, paneles */
+--surface-raised: #F0EFE8   /* elementos dentro de card */
+--border:         #DEDACC   /* bordes 1px */
+--text:           #12203D   /* texto principal */
+--text-dim:       #6B7280   /* texto secundario, labels */
+--accent:         #1E9E5A   /* verde cancha — success */
+--gold:           #F2A93B   /* ámbar — goles, countdowns */
+--danger:         #E14F5A   /* errores, "perdiendo" */
+--stale:          #9A9484   /* dato cacheado */
 ```
 
 ### Tipografía
 
-| Rol | Fuente | Uso |
-|---|---|---|
-| Display | Space Grotesk | Títulos de sección |
-| Body | Inter | UI, botones, labels |
-| Data/mono | JetBrains Mono | Marcadores, goles, countdowns |
+| Rol | Fuente |
+|---|---|
+| Display / títulos | Space Grotesk |
+| Body / UI / botones | Inter |
+| Marcadores / goles / countdowns | JetBrains Mono |
 
-### Componente firma: Ticket Card
+### Componente Ticket Card
 
 ```html
 <div class="ticket-card">
@@ -309,46 +384,22 @@ Concepto: **mesa del fanático organizando su Mundial**. Fondo claro tipo papel,
 </div>
 ```
 
-La línea punteada (`.ticket-card__perforation`) separa el stub del body en todas las vistas.
-
 ### Estados visuales
 
 | Estado | Visualización |
 |---|---|
 | Cargando | Skeleton con shimmer (nunca spinner genérico) |
-| Dato pendiente | Texto en `--text-dim` + badge en `--stale` |
-| Dato cacheado | Badge pill en `--stale`: "Datos guardados · hace Xm" |
-| Reintentando (429/500) | Status Pill en `--gold` + countdown mono: "Reintentando en 4s" |
-| Sesión expirada (401) | Modal centrado, fondo difuminado, botón "Volver a iniciar sesión" |
-| Error sin caché | Banner inline dentro del `ticket-card__body`, borde izquierdo en `--danger` |
-
-### Shell de la app
-
-```
-┌─────────────────────────────────┐
-│  SPLICE WC26    [● En vivo] [Nav]│  ← header --surface, línea --border abajo
-├─────────────────────────────────┤
-│  fondo --bg (papel)              │
-│  #app — views tipo ticket card   │
-└─────────────────────────────────┘
-```
-
-- El header nunca se re-renderiza al cambiar de ruta (solo `#app` / `outlet`).
-- Mobile-first; Status Pill nunca se oculta.
-
-### Microcopy
-
-- Mensajes explican qué pasó y qué hace la app: *"No se pudo conectar. Reintentando en 4s."* — nunca solo "Error".
-- Sin códigos HTTP visibles en pantalla ("Error 429" → "Demasiadas solicitudes. Reintentando…").
-- Estados vacíos invitan a actuar: *"Elegí tu primer equipo para arrancar."*
+| Dato pendiente | Texto `--text-dim` + badge `--stale` |
+| Dato cacheado | Badge pill `--stale`: "Datos guardados · hace Xm" (`timeAgo`) |
+| Reintentando | Status Pill `--gold` + countdown mono: "Reintentando en 4s" |
+| Sesión expirada | Modal centrado, fondo difuminado, botón "Volver a iniciar sesión" |
+| Error sin caché | Banner inline, borde izquierdo `--danger` |
 
 ---
 
-## Cómo debe trabajar el copiloto en este repo
+## Reglas para el copiloto
 
-1. **No sugerir frameworks ni librerías de UI** sin evaluar primero si rompe la filosofía "vanilla + micro-framework propio". El objetivo del lab es construir esa capa a mano.
-2. **Cualquier feature nueva** va en `src/features/<nombre>/` con la misma estructura que `authen/`: `api.js`, `view.js`, `styles.js` (clases Tailwind), y los módulos de errores/validación que hagan falta.
-3. **Reutilizar siempre** `@context/*` y `@shared/http/*`. Nunca duplicar lógica de store, fetch, caché o retry en una feature.
-4. **El código debe ser explicable en una defensa oral** — evitar abstracciones "mágicas" que el estudiante no pueda justificar. Si una decisión de diseño no es obvia, el copiloto debe poder explicarla en palabras simples.
-5. **Antes de tocar la capa HTTP**, verificar que los cambios siguen cumpliendo todas las restricciones de la sección anterior.
-6. **Commits en español o inglés**, sin emojis — seguir el estilo `feat(scope): descripción` ya establecido en el historial.
+1. Siempre reutilizar `@context/*` y `@shared/http/*` — nunca duplicar store, fetch, caché o retry.
+2. Features nuevas van en `src/features/<nombre>/` siguiendo la estructura de las existentes.
+3. No sugerir frameworks ni librerías de UI.
+4. Commits sin emojis: estilo `feat(scope): descripción` / `fix(scope): descripción`.
